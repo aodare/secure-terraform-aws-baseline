@@ -1,0 +1,6 @@
+# Copy this file to terraform.tfvars for local experimentation.
+# Do not commit terraform.tfvars if it contains real account-specific values.
+
+aws_region   = "us-east-1"
+project_name = "secure-baseline"
+environment  = "sandbox"
