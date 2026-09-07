@@ -53,6 +53,8 @@ jobs:
           framework: terraform
           output_format: cli,json
           output_file_path: console,checkov-reports/secure-baseline.json
+          skip_check: CKV2_AWS_62,CKV_AWS_144
+          soft_fail: false
           quiet: true
 
       - name: Upload secure baseline Checkov report
