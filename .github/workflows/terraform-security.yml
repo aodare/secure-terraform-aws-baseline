@@ -1,0 +1,96 @@
+name: Terraform Security Baseline
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "terraform/**"
+      - "insecure-examples/**"
+      - ".github/workflows/terraform-security.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "terraform/**"
+      - "insecure-examples/**"
+      - ".github/workflows/terraform-security.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  secure-baseline:
+    name: Validate and Scan Secure Baseline
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+          terraform_wrapper: false
+
+      - name: Check Terraform formatting
+        working-directory: terraform
+        run: terraform fmt -check -recursive
+
+      - name: Initialize Terraform without backend
+        working-directory: terraform
+        run: terraform init -backend=false
+
+      - name: Validate Terraform configuration
+        working-directory: terraform
+        run: terraform validate
+
+      - name: Scan secure baseline with Checkov
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: terraform
+          framework: terraform
+          output_format: cli,json
+          output_file_path: console,checkov-reports/secure-baseline.json
+          quiet: true
+
+      - name: Upload secure baseline Checkov report
+        uses: actions/upload-artifact@v4
+        with:
+          name: secure-baseline-checkov-report
+          path: checkov-reports/secure-baseline.json
+          if-no-files-found: error
+
+  insecure-fixture:
+    name: Demonstrate Insecure Configuration Detection
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Scan insecure training fixture with Checkov
+        id: insecure_scan
+        continue-on-error: true
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: insecure-examples
+          framework: terraform
+          output_format: cli,json
+          output_file_path: console,checkov-reports/insecure-fixture.json
+          quiet: true
+
+      - name: Confirm insecure fixture was detected
+        if: steps.insecure_scan.outcome == 'success'
+        run: |
+          echo "The insecure fixture unexpectedly passed Checkov."
+          exit 1
+
+      - name: Upload insecure fixture Checkov report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: insecure-fixture-checkov-report
+          path: checkov-reports/insecure-fixture.json
+          if-no-files-found: warn
